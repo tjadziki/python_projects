@@ -1,3 +1,4 @@
+from moviepy.config import change_settings
 import os
 from moviepy.editor import *
 import tkinter as tk
@@ -7,7 +8,7 @@ import mimetypes
 import random
 import string
 
-from moviepy.config import change_settings
+
 change_settings(
     {"IMAGEMAGICK_BINARY":  r"C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
 
@@ -21,6 +22,7 @@ class FileObject:
 
 
 class VideoEditorGUI(tk.Frame):
+
     def __init__(self, master):
         self.master = master
         tk.Frame.__init__(self, self.master)
@@ -32,26 +34,32 @@ class VideoEditorGUI(tk.Frame):
         self.master.geometry('1280x760')
 
     def create_widgets(self):
+        # Cropping area
+        cropFrame = tk.Frame(self.master, borderwidth=5,
+                             relief="raised", width=800, height=600)
+        cropFrame.grid(row=0, column=0, padx=10, pady=10)
+        cropFrame.columnconfigure(1, weight=1)
+        cropFrame.rowconfigure(0, weight=1)
+
         # Import Button
         importBtn = tk.Button(self.master, text="Import", font=(
-            "Helvatica", 18), padx=10, pady=5, fg="#FFF", bg="#3582e8", command=self.open_dialog)
-        importBtn.grid(stick="W", column=0, row=0, padx=10, pady=10)
+            "Helvetica", 18), padx=10, pady=5, fg="#FFF", bg="#3582e8", command=self.open_dialog)
+        importBtn.grid(column=0, row=1, padx=10, pady=10)
+
         # Process Button
         processBtn = tk.Button(self.master, text="Process", font=(
-            "Helvatica", 18), padx=10, pady=5, fg="#FFF", bg="#3582e8", command=self.processData)
-        processBtn.grid(sticky="W", column=0, row=1, padx=10, pady=10)
-
-        # Cropping area
-        # TODO
+            "Helvetica", 18), padx=10, pady=5, fg="#FFF", bg="#3582e8", command=self.processData)
+        processBtn.grid(column=0, row=2, padx=10, pady=10)
 
         # Branding text
         overlayEntry = tk.Entry(self.master, width=15,
-                                text="Title", font=("Helvatica", 18))
-        overlayEntry.grid(sticky="W", column=0, row=2, padx=10, pady=10)
+                                text="Title", font=("Helvetica", 18))
+        overlayEntry.grid(column=0, row=3, padx=10, pady=10)
 
         return overlayEntry
 
     # Function to import video and audio
+
     def open_dialog(self):
         self.master.filename = filedialog.askopenfilename(
             initialdir="/", title="Select your files", filetypes=[('All files', '*.*')])
@@ -114,6 +122,14 @@ class VideoEditorGUI(tk.Frame):
         resized_clip.write_gif(gif_name)
         # Alternative: ffmpeg -i input.mp4 -vcodec h264 -acodac aad output.mp4
 
+        # Cropping
+        facecam = clip.crop(x1=50, y1=60, x2=460, y2=275)
+        gameplay = clip.crop(x1=1500, y1=540, x2=1920, y2=400)
+        # Create new Potrait sized video
+        clips = [facecam, gameplay]
+        clip = clips_array(clips)
+        clip.ipython_display(width=480)
+
         clip_with_audio = clip.set_audio(bg_music)
         final_clip = CompositeVideoClip([clip_with_audio, clip_overlay])
         final_clip.write_videofile(
@@ -124,6 +140,9 @@ class VideoEditorGUI(tk.Frame):
 if __name__ == '__main__':
     root = tk.Tk()
     root.title("Edge Cutter")
+    VideoEditorGUI(root).grid(sticky="nsew")
+    root.grid_rowconfigure(0, weight=1)
+    root.grid_columnconfigure(0, weight=1)
 
     main_app = VideoEditorGUI(root)
     root.mainloop()
