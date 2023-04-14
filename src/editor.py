@@ -11,27 +11,60 @@ from moviepy.config import change_settings
 change_settings(
     {"IMAGEMAGIC_BINARY":  r"C:\Program Files\ImageMagick-7.1.1-Q16-HDRI\\magick.exe"})
 
-# # Changing directory
-# os.chdir('../data/input')
-# cur_path = os.path.dirname(os.path.abspath(__file__))
-# print(cur_path)
 
-# # Walk function
-# for root, dirs, files in os.walk(cur_path, topdown=False):
-#     for name in files:
-#         print(os.path.join(root, name))
-#     for name in dirs:
-#         print(os.path.join(root, name))
+# Creating the interface
+class FileObject:
+    def __init__(self, path, label, data_type):
+        self.path = path
+        self.label = label
+        self.data_type = data_type
 
-clip = VideoFileClip(
-    r"C:\Users\joedz\OneDrive\Documents\GitHub\python_projects\data\input\pexels-annie-spratt-10698379-1920x1080-24fps.mp4")
 
-w, h = clip.size
+class VideoEditorGUI(tk.Frame):
+    def __init__(self, master):
+        self.master = master
+        tk.Frame.__init__(self, self.master)
+        self.gui = self.configure_gui()
+        self.widgets = self.create_widgets()
+        self.importedObjects = []
 
-duration = clip.duration
+    def configure_gui(self):
+        self.master.geometry('1280x760')
 
-fps = clip.fps
+    def create_widgets(self):
+        # Import Button
+        importBtn = tk.Button(self.master, text="Import", font=(
+            "Helvatica", 18), padx=10, pady=5, fg="#FFF", bg="#3582e8", command=self.open_dialog)
+        importBtn.grid(stick="W", column=0, row=0, padx=10, pady=10)
+        # Process Button
+        processBtn = tk.Button(self.master, text="Process", font=(
+            "Helvatica", 18), padx=10, pady=5, fg="#FFF", bg="#3582e8", command=self.processData)
+        processBtn.grid(sticky="W", column=0, row=1, padx=10, pady=10)
 
-print("Width x Height", w, " x ", h)
-print("Duration: ", duration)
-print("FPS: ", fps)
+        # Cropping area
+        # TODO
+
+        # Branding text
+        overlayEntry = tk.Entry(self.master, width=15,
+                                text="Title", font=("Helvatica", 18))
+        overlayEntry.grid(sticky="W", column=0, row=2, padx=10, pady=10)
+
+        return overlayEntry
+
+    # Function to import video and audio
+    def open_dialog(self):
+        self.master.filename = filedialog.askopenfilename(
+            initialdir="/", title="Select your files", filetypes=[('All files', '*.*')])
+        print(self.master.filename)
+
+    def processData(self):
+        print("Processing")
+
+
+# Root frame
+if __name__ == '__main__':
+    root = tk.Tk()
+    root.title("Edge Cutter")
+
+    main_app = VideoEditorGUI(root)
+    root.mainloop()
