@@ -141,8 +141,18 @@ class VideoEditorGUI(tk.Frame):
             np.uint8(frame)).resize((640, 360), Image.ANTIALIAS)
         self.video_frame = ImageTk.PhotoImage(self.video_frame)
 
-        self.canvas.create_image(0, 0, anchor=tk.NW, image=self.video_frame)
+        # Remove previous video and rectangles if they exist
+        self.canvas.delete("video")
+        if hasattr(self, 'facecam'):
+            self.canvas.delete(self.facecam.tag)
+        if hasattr(self, 'gameplay'):
+            self.canvas.delete(self.gameplay.tag)
 
+        # Add the new video frame
+        self.canvas.create_image(
+            0, 0, anchor=tk.NW, image=self.video_frame, tags="video")
+
+        # Create the new rectangles
         self.facecam = ResizableRectangle(
             self.canvas, 10, 10, 160, 90, "facecam", "Facecam")
         self.gameplay = ResizableRectangle(
@@ -155,8 +165,18 @@ class VideoEditorGUI(tk.Frame):
 
         clip = VideoFileClip(self.filepath)
 
+        # Calculate scaling factor
+        scale_x = clip.size[0] / 640
+        scale_y = clip.size[1] / 360
+
         facecam_coords = self.canvas.coords(self.facecam.tag)
         gameplay_coords = self.canvas.coords(self.gameplay.tag)
+
+        # Scale the coordinates to match the original video dimensions
+        facecam_coords = [c * scale_x if i % 2 == 0 else c *
+                          scale_y for i, c in enumerate(facecam_coords)]
+        gameplay_coords = [c * scale_x if i % 2 == 0 else c *
+                           scale_y for i, c in enumerate(gameplay_coords)]
 
         facecam_clip = clip.crop(
             x1=facecam_coords[0], y1=facecam_coords[1], x2=facecam_coords[2], y2=facecam_coords[3])
@@ -166,8 +186,12 @@ class VideoEditorGUI(tk.Frame):
             x1=gameplay_coords[0], y1=gameplay_coords[1], x2=gameplay_coords[2], y2=gameplay_coords[3])
         gameplay_resized = gameplay_clip.resize(height=720)
 
-        final_clip = concatenate_videoclips(
-            [facecam_resized, gameplay_resized], method="compose")
+        facecam_position = (0, 0)
+        gameplay_position = (0, 360)
+
+        final_clip = CompositeVideoClip([gameplay_resized.set_position(gameplay_position),
+                                        facecam_resized.set_position(facecam_position)], size=(720, 1080))
+
         output_path = filedialog.asksaveasfilename(defaultextension=".mp4")
         if not output_path:
             return
