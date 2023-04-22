@@ -158,6 +158,15 @@ class VideoEditorGUI(tk.Frame):
             self.process_button.grid_remove()
             return
 
+        # Check if the file extension is supported
+        file_extension = os.path.splitext(filepath)[-1].lower()
+        supported_extensions = [".mp4", ".mkv", ".avi",
+                                ".mov", ".wmv", ".flv", ".webm", ".m4v", ".3gp"]
+
+        if file_extension not in supported_extensions:
+            messagebox.showerror(
+                "Error", "Import video files only (e.g.  files that end with .mp4, .mkv).")
+            return
         # Restore the original button layout
         self.import_button.pack_forget()
         self.import_button.grid(
