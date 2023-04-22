@@ -1,13 +1,12 @@
 import os
 from moviepy.editor import *
-from moviepy.config import change_settings
 import tkinter as tk
 import numpy as np
 from tkinter import filedialog
 from tkinter import messagebox
 from PIL import Image, ImageTk
 
-# Creating the interface
+# Coding technique learned from MoviePy Tutorials by AI Sciences on Youtube
 
 
 class FileObject:
@@ -34,6 +33,9 @@ class ResizableRectangle:
     def y2(self):
         return self.canvas.coords(self.tag)[3]
 
+    def create_handle(self, x, y):
+        return self.canvas.create_rectangle(x - 3, y - 3, x + 3, y + 3, fill="white", tags=self.tag)
+
     def __init__(self, canvas, x1, y1, x2, y2, tag, text):
         self.canvas = canvas
         self.tag = tag
@@ -41,14 +43,15 @@ class ResizableRectangle:
 
         self.canvas.create_rectangle(
             x1, y1, x2, y2, outline="white", tags=self.tag)
-        self.canvas.create_text(
+        self.text_id = self.canvas.create_text(
             (x1 + x2) / 2, (y1 + y2) / 2, text=self.text, tags=self.tag, fill="white")
-        self.corners = []
-        for i in range(4):
-            self.corners.append(self.canvas.create_rectangle(
-                0, 0, 10, 10, fill="white", tags=self.tag))
 
-        self._update_corners()
+        self.handles = [
+            self.create_handle(x1, y1),
+            self.create_handle(x1, y2),
+            self.create_handle(x2, y1),
+            self.create_handle(x2, y2),
+        ]
 
         self.canvas.tag_bind(self.tag, "<ButtonPress-1>", self.on_press)
         self.canvas.tag_bind(self.tag, "<ButtonRelease-1>", self.on_release)
@@ -56,71 +59,84 @@ class ResizableRectangle:
 
     def on_press(self, event):
         self.x, self.y = event.x, event.y
-        self._current_corner = None
+        self.resizing = self.is_resizing(event.x, event.y)
 
-        for i, corner in enumerate(self.corners):
-            coords = self.canvas.coords(corner)
-            if coords[0] <= event.x <= coords[2] and coords[1] <= event.y <= coords[3]:
-                self._current_corner = i
+    def is_resizing(self, x, y):
+        x1, y1, x2, y2 = self.canvas.coords(self.tag)
+        corners = [(x1, y1), (x1, y2), (x2, y1), (x2, y2)]
+        self.resizing_corner = None
+
+        for corner_x, corner_y in corners:
+            if abs(x - corner_x) <= 5 and abs(y - corner_y) <= 5:
+                self.resizing_corner = (corner_x, corner_y)
                 break
 
-    def on_release(self, event):
-        self.x, self.y = None, None
+        return self.resizing_corner is not None
 
     def on_move(self, event):
         dx, dy = event.x - self.x, event.y - self.y
 
-        if self._current_corner is not None:
-            coords = self.canvas.coords(self.tag)
-            if self._current_corner in (0, 1):
-                coords[1] += dy
-            if self._current_corner in (2, 3):
-                coords[3] += dy
-            if self._current_corner in (0, 2):
-                coords[0] += dx
-            if self._current_corner in (1, 3):
-                coords[2] += dx
-            self.canvas.coords(self.tag, *coords)
-        else:
-            self.canvas.move(self.tag, dx, dy)
+        x1, y1, x2, y2 = self.canvas.coords(self.tag)
+        frame_width = self.canvas.winfo_width()
+        frame_height = self.canvas.winfo_height()
 
-        self._update_corners()
+        if self.resizing:
+            new_x2 = min(max(x2 + dx, x1 + 10), frame_width)
+            new_y2 = min(max(y2 + dy, y1 + 10), frame_height)
+            self.canvas.coords(self.tag, x1, y1, new_x2, new_y2)
+        else:
+            new_x1 = min(max(x1 + dx, 0), frame_width - (x2 - x1))
+            new_y1 = min(max(y1 + dy, 0), frame_height - (y2 - y1))
+            new_x2 = new_x1 + (x2 - x1)
+            new_y2 = new_y1 + (y2 - y1)
+            self.canvas.coords(self.tag, new_x1, new_y1, new_x2, new_y2)
+
         self.x, self.y = event.x, event.y
 
-    def _update_corners(self):
-        coords = self.canvas.coords(self.tag)
-        x1, y1, x2, y2 = coords
+        x1, y1, x2, y2 = self.canvas.coords(self.tag)
+        self.canvas.coords(self.text_id, (x1 + x2) / 2, (y1 + y2) / 2)
 
-        corner_coords = [
-            (x1 - 5, y1 - 5, x1 + 5, y1 + 5),
-            (x2 - 5, y1 - 5, x2 + 5, y1 + 5),
-            (x1 - 5, y2 - 5, x1 + 5, y2 + 5),
-            (x2 - 5, y2 - 5, x2 + 5, y2 + 5),
-        ]
+        # Update handle positions
+        self.canvas.coords(self.handles[0], x1 - 3, y1 - 3, x1 + 3, y1 + 3)
+        self.canvas.coords(self.handles[1], x1 - 3, y2 - 3, x1 + 3, y2 + 3)
+        self.canvas.coords(self.handles[2], x2 - 3, y1 - 3, x2 + 3, y1 + 3)
+        self.canvas.coords(self.handles[3], x2 - 3, y2 - 3, x2 + 3, y2 + 3)
 
-        for corner, new_coords in zip(self.corners, corner_coords):
-            self.canvas.coords(corner, *new_coords)
-
-# ResizableRectangle class remains the same
+    def on_release(self, event):
+        self.resizing = False
 
 
 class VideoEditorGUI(tk.Frame):
 
     def __init__(self, master):
         self.master = master
+        self.master.title("Edge Cutter")
         self.frame = tk.Frame(self.master)
         self.frame.pack(fill=tk.BOTH, expand=True)
 
         self.canvas = tk.Canvas(self.frame, bg="black", width=640, height=360)
-        self.canvas.pack()
+        self.canvas.pack(pady=(0, 30))
+
+        self.button_frame = tk.Frame(self.frame)
+        self.button_frame.pack(side=tk.BOTTOM, pady=(0, 0))
 
         self.import_button = tk.Button(
-            self.frame, text="Import Video", command=self.import_video)
-        self.import_button.pack(side=tk.LEFT)
+            self.button_frame, text="Import Video", command=self.import_video, bg="#0cc0df", fg="white")
+        self.import_button.grid(
+            row=0, column=0, sticky="nsew", pady=(0, 10), padx=10)
 
         self.process_button = tk.Button(
-            self.frame, text="Process Video", command=self.process_data)
-        self.process_button.pack(side=tk.RIGHT)
+            self.button_frame, text="Process Video", command=self.process_data, bg="#0cc0df", fg="white")
+        self.process_button.grid(
+            row=0, column=1, sticky="nsew", pady=(0, 10), padx=10)
+
+        self.video_clip = None
+
+        # Configure rows and columns for resizing
+        master.columnconfigure(0, weight=1)
+        master.columnconfigure(1, weight=1)
+        master.rowconfigure(0, weight=1)
+        master.rowconfigure(1, weight=0)
 
     def import_video(self):
         filepath = filedialog.askopenfilename()
@@ -192,6 +208,9 @@ class VideoEditorGUI(tk.Frame):
         final_clip = CompositeVideoClip([gameplay_resized.set_position(gameplay_position),
                                         facecam_resized.set_position(facecam_position)], size=(720, 1080))
 
+        self.cut_video(final_clip)
+
+    def cut_video(self, final_clip):
         output_path = filedialog.asksaveasfilename(defaultextension=".mp4")
         if not output_path:
             return
@@ -199,11 +218,29 @@ class VideoEditorGUI(tk.Frame):
         final_clip.write_videofile(
             output_path, codec='libx264', audio_codec='aac')
 
+        messagebox.showinfo("Success", "Video has been processed and saved.")
+        output_folder = os.path.dirname(output_path)
+        open_folder_button = tk.Button(
+            self.master, text="Open Output Folder", command=lambda: os.startfile(output_folder))
+        open_folder_button.pack(side=tk.BOTTOM, pady=(10, 0))
+
+    def close_video(self):
+        if self.video_clip is not None:
+            self.video_clip.close()
+
+
+def on_close(root, app):
+    app.close_video()
+    root.destroy()
+
 
 def main():
     root = tk.Tk()
     root.geometry("800x600")
+    root.minsize(800, 600)
+    global app
     app = VideoEditorGUI(root)
+    root.protocol("WM_DELETE_WINDOW", lambda: on_close(root, app))
     root.mainloop()
 
 
