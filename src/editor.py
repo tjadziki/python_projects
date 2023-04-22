@@ -116,6 +116,8 @@ class VideoEditorGUI(tk.Frame):
 
         self.canvas = tk.Canvas(self.frame, bg="black", width=640, height=360)
         self.canvas.pack(pady=(0, 30))
+        # Hide the canvas initially
+        self.canvas.pack_forget()
 
         self.button_frame = tk.Frame(self.frame)
         self.button_frame.pack(side=tk.BOTTOM, pady=(0, 0))
@@ -129,8 +131,14 @@ class VideoEditorGUI(tk.Frame):
             self.button_frame, text="Process Video", command=self.process_data, bg="#0cc0df", fg="white")
         self.process_button.grid(
             row=0, column=1, sticky="nsew", pady=(0, 10), padx=10)
+        # Hide the process button initially
+        self.process_button.grid_remove()
 
         self.video_clip = None
+
+        # Move the import button to the center of the frame
+        self.import_button.pack(expand=True, ipadx=30,
+                                ipady=10, pady=100, padx=100)
 
         # Configure rows and columns for resizing
         master.columnconfigure(0, weight=1)
@@ -141,7 +149,23 @@ class VideoEditorGUI(tk.Frame):
     def import_video(self):
         filepath = filedialog.askopenfilename()
         if not filepath:
+            # If no file was selected, move the import button back to the center
+            self.import_button.grid_forget()
+            self.import_button.pack(expand=True)
+            # Hide the canvas
+            self.canvas.pack_forget()
+            # Hide the process button
+            self.process_button.grid_remove()
             return
+
+        # Restore the original button layout
+        self.import_button.pack_forget()
+        self.import_button.grid(
+            row=0, column=0, sticky="nsew", pady=(0, 10), padx=10, ipadx=0, ipady=0)
+        # Show the canvas
+        self.canvas.pack()
+        # Show the process button
+        self.process_button.grid()
 
         # Save the video filepath
         self.filepath = filepath
@@ -196,17 +220,22 @@ class VideoEditorGUI(tk.Frame):
 
         facecam_clip = clip.crop(
             x1=facecam_coords[0], y1=facecam_coords[1], x2=facecam_coords[2], y2=facecam_coords[3])
-        facecam_resized = facecam_clip.resize(height=360)
-
         gameplay_clip = clip.crop(
             x1=gameplay_coords[0], y1=gameplay_coords[1], x2=gameplay_coords[2], y2=gameplay_coords[3])
-        gameplay_resized = gameplay_clip.resize(height=720)
+
+        output_width = 720
+        facecam_height = int(1080 / 3)
+        gameplay_height = int(1080 * 2 / 3)
+
+        facecam_resized = facecam_clip.resize((output_width, facecam_height))
+        gameplay_resized = gameplay_clip.resize(
+            (output_width, gameplay_height))
 
         facecam_position = (0, 0)
-        gameplay_position = (0, 360)
+        gameplay_position = (0, facecam_height)
 
         final_clip = CompositeVideoClip([gameplay_resized.set_position(gameplay_position),
-                                        facecam_resized.set_position(facecam_position)], size=(720, 1080))
+                                        facecam_resized.set_position(facecam_position)], size=(output_width, 1080))
 
         self.cut_video(final_clip)
 
@@ -220,9 +249,13 @@ class VideoEditorGUI(tk.Frame):
 
         messagebox.showinfo("Success", "Video has been processed and saved.")
         output_folder = os.path.dirname(output_path)
+        # Remove the existing Open Output Folder button if it exists
+        if hasattr(self, 'open_folder_button'):
+            self.open_folder_button.destroy()
+        # Create a new Output Folder button
         open_folder_button = tk.Button(
-            self.master, text="Open Output Folder", command=lambda: os.startfile(output_folder))
-        open_folder_button.pack(side=tk.BOTTOM, pady=(10, 0))
+            self.master, text="Open Output Folder", command=lambda: os.startfile(output_folder), bg="#FFD700")
+        open_folder_button.pack(side=tk.BOTTOM, pady=10, padx=10)
 
     def close_video(self):
         if self.video_clip is not None:
